@@ -104,8 +104,11 @@ class CRL:
         self.calc_y_teta()
 
     def calc_delta_focus(self, p):
-        d = self.d_ssa_focus - (self.p0 + p + self.transfocator_config[self._find_element_by_id(self.cart_ids[-1])][
-            'offset_cart'] * self.dl_cart)
+        if p is not None:
+            d = self.d_ssa_focus - (self.p0 + p + self.transfocator_config[self._find_element_by_id(self.cart_ids[-1])][
+                'offset_cart'] * self.dl_cart)
+        else:
+            d = None
         return d
 
     def calc_ideal_focus(self, radius, n):
@@ -334,9 +337,9 @@ class CRL:
 
 
 if __name__ == '__main__':
-    l = [2, 6, 7, 8]
-    e = 20500
-    p0 = 6.45
+    l = [1, 2, 3, 4, 5, 6, 7, 8]
+    e = 24000
+    p0 = 6.2
     crl = CRL(l, energy=e, use_numpy=True, p0=p0)
     p1 = crl.calc_real_lens()
     p1_ideal = crl.calc_ideal_lens()
