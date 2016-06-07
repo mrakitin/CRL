@@ -4,6 +4,7 @@ from __future__ import division
 
 import copy
 import math
+import os
 
 try:
     import numpy as np
@@ -13,6 +14,7 @@ except:
     NUMPY = False
 NUMPY = False  # explicitly avoid usage of NumPy.
 
+DAT_DIR = 'dat'
 TRANSFOCATOR_CONFIG = [
     {
         'id': 1,
@@ -65,10 +67,11 @@ class CRL:
                  r_array=(50, 200, 500),
                  lens_array=(1, 2, 4, 8, 16),
                  p0=6.2,
+                 d_ssa_focus=8.1,
                  energy=24000.0,
                  teta0=60e-6,
                  transfocator_config=TRANSFOCATOR_CONFIG,
-                 data_file='Be_delta.dat',
+                 data_file=os.path.join(DAT_DIR, 'Be_delta.dat'),
                  use_numpy=NUMPY):
 
         # Input variables:
@@ -78,6 +81,7 @@ class CRL:
         self.r_array = r_array
         self.lens_array = lens_array
         self.p0 = p0
+        self.d_ssa_focus = d_ssa_focus
         self.energy = energy
         self.teta0 = teta0
         self.transfocator_config = transfocator_config
@@ -99,6 +103,11 @@ class CRL:
         self.calc_T_total()
         self.calc_y_teta()
 
+    def calc_delta_focus(self, p):
+        d = self.d_ssa_focus - (self.p0 + p + self.transfocator_config[self._find_element_by_id(self.cart_ids[-1])][
+            'offset_cart'] * self.dl_cart)
+        return d
+
     def calc_ideal_focus(self, radius, n):
         self.ideal_focus = radius / (2 * n * self.delta)
 
@@ -118,10 +127,6 @@ class CRL:
             print('Radii of the specified lenses ({}) are different! Cannot calculate the ideal lens.'.format(radii))
         return self.p1_ideal
 
-    def calc_real_lens(self):
-        self.calc_p1()
-        return self.p1
-
     def calc_lens_array(self, radius, n):
         """Calculate accumulated T_fs for one cartridge with fixed radius.
 
@@ -139,7 +144,11 @@ class CRL:
         self.p1 = self.y / math.tan(math.pi - self.teta)
 
     def calc_p1_ideal(self):
-        self.p1_ideal = (1 / (1 / self.ideal_focus - 1 / self.p0))
+        self.p1_ideal = 1 / (1 / self.ideal_focus - 1 / self.p0)
+
+    def calc_real_lens(self):
+        self.calc_p1()
+        return self.p1
 
     def calc_T_total(self):
         dist_list = []
@@ -305,9 +314,13 @@ class CRL:
         if self.use_numpy:
             B = np.linalg.matrix_power(A, n)
         else:
-            B = copy.deepcopy(A)
-            for i in range(n - 1):
-                B = self._dot(A, B)
+            if n > 0:
+                B = copy.deepcopy(A)
+                for i in range(n - 1):
+                    B = self._dot(A, B)
+            else:
+                B = [[1, 0],
+                     [0, 1]]
         return B
 
     def _process_lens_config(self):
@@ -321,8 +334,18 @@ class CRL:
 
 
 if __name__ == '__main__':
-    crl = CRL([2, 4, 6, 7, 8])
+    l = [2, 6, 7, 8]
+    e = 20500
+    p0 = 6.45
+    crl = CRL(l, energy=e, use_numpy=True, p0=p0)
     p1 = crl.calc_real_lens()
     p1_ideal = crl.calc_ideal_lens()
 
-    print()
+    crl2 = CRL(l, energy=e, use_numpy=False, p0=p0)
+    p2 = crl.calc_real_lens()
+    p2_ideal = crl.calc_ideal_lens()
+
+    d = crl.calc_delta_focus(p1)
+    d_ideal = crl.calc_delta_focus(p1_ideal)
+
+    print('P0: {}, P1: {}, P1 ideal: {}'.format(crl.p0, p1, p1_ideal))
