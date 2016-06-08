@@ -170,8 +170,8 @@ class CRL:
                 header.append(key)
                 data.append(python_data[key])
             output_text = '{}\n{}\n'.format(
-                ', '.join(header),
-                ', '.join([str(x) for x in data]))
+                ','.join(['"{}"'.format(x) for x in header]),
+                ','.join([str(x) for x in data]))
         elif output_format == 'json':
             output_text = json.dumps(
                 python_data,
