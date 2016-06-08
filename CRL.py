@@ -76,14 +76,11 @@ class CRL:
             d = None
         return d
 
-    def calc_ideal_focus(self, radius, n):
-        self.ideal_focus = radius / (2 * n * self.delta)
-
     def calc_ideal_lens(self):
         self._get_radii_n()
         tolerance = 1e-8
         if abs(sum(self.radii) / len(self.radii) - self.radii[0]) < tolerance:
-            self.calc_ideal_focus(self.radii[0], self.n)
+            self.ideal_focus = self.radii[0] / (2 * self.n * self.delta)
             self.p1_ideal = 1 / (1 / self.ideal_focus - 1 / self.p0)
         else:
             print('Radii of the specified lenses ({}) are different! Cannot calculate ideal lens.'.format(self.radii))
