@@ -33,7 +33,7 @@ class CRL:
                  d_ssa_focus=8.1,  # [m]
                  energy=24000.0,  # [eV]
                  teta0=60e-6,  # [rad]
-                 data_file=os.path.join(DAT_DIR, 'Be_delta.dat'),
+                 data_file='Be_delta.dat',
                  use_numpy=NUMPY):
 
         # Input variables:
@@ -47,7 +47,7 @@ class CRL:
         self.d_ssa_focus = d_ssa_focus
         self.energy = energy
         self.teta0 = teta0
-        self.data_file = data_file
+        self.data_file = os.path.join(DAT_DIR, data_file)
         self.use_numpy = use_numpy
 
         # Prepare other necessary variables:
@@ -324,19 +324,56 @@ class CRL:
 
 
 if __name__ == '__main__':
-    l = [2, 4, 6, 7, 8]
-    e = 21500
-    p0 = 6.52
+    import argparse
 
-    crl1 = CRL(cart_ids=l, energy=e, p0=p0, use_numpy=True)
-    p1 = crl1.calc_real_lens()
-    p1_ideal = crl1.calc_ideal_lens()
+    description = 'Calculate real CRL under-/over-focusing comparing with ideal lens.'
+    parser = argparse.ArgumentParser(description=description)
 
-    crl2 = CRL(cart_ids=l, energy=e, p0=p0, use_numpy=False)
-    p2 = crl2.calc_real_lens()
-    p2_ideal = crl2.calc_ideal_lens()
+    defaults_file = os.path.join(CONFIG_DIR, 'defaults.json')
+    with open(defaults_file, 'r') as f:
+        defaults = json.load(f)
 
-    d = crl1.calc_delta_focus(p1)
-    d_ideal = crl1.calc_delta_focus(p1_ideal)
+        # Processing arguments:
+        required_args = []
+        optional_args = []
 
-    print('P0: {}, P1: {}, P1 ideal: {}'.format(crl1.p0, p1, p1_ideal))
+        for key in sorted(defaults.keys()):
+            if defaults[key]['default'] is None:
+                required_args.append(key)
+            else:
+                optional_args.append(key)
+
+        for key in required_args + optional_args:
+            args = [
+                '--{}'.format(key),
+            ]
+            kwargs = {
+                'dest': key,
+                'default': defaults[key]['default'],
+                'required': False,
+                'type': eval(defaults[key]['type']),
+                'nargs': None,
+                'action': None,
+                'help': '{}.'.format(defaults[key]['help']),
+            }
+            if defaults[key]['default'] is None:
+                kwargs['required'] = True
+
+            if defaults[key]['type'] == bool:
+                kwargs['action'] = 'store_true'
+
+            if defaults[key]['type'] in ["list", "tuple"]:
+                kwargs['type'] = eval(defaults[key]['element_type'])
+                kwargs['nargs'] = '+'
+
+            parser.add_argument(*args, **kwargs)
+
+    args = parser.parse_args()
+
+    crl = CRL(**args.__dict__)
+    p1 = crl.calc_real_lens()
+    p1_ideal = crl.calc_ideal_lens()
+    d = crl.calc_delta_focus(p1)
+    d_ideal = crl.calc_delta_focus(p1_ideal)
+
+    print('P0: {}, P1: {}, P1 ideal: {}, d: {}, d ideal: {}'.format(crl.p0, p1, p1_ideal, d, d_ideal))
