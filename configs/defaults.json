@@ -6,9 +6,9 @@
     },
     "cart_ids": {
         "default": null,
+        "element_type": "int",
         "help": "cartridges ids",
-        "type": "list",
-        "element_type": "int"
+        "type": "list"
     },
     "d_ssa_focus": {
         "default": 8.1,
@@ -43,9 +43,14 @@
             8,
             16
         ],
+        "element_type": "float",
         "help": "possible number of lenses in cartridges",
-        "type": "tuple",
-        "element_type": "float"
+        "type": "tuple"
+    },
+    "outfile": {
+        "default": false,
+        "help": "output JSON file",
+        "type": "str"
     },
     "p0": {
         "default": 6.2,
@@ -58,9 +63,9 @@
             200,
             500
         ],
+        "element_type": "float",
         "help": "radii of available lenses in different cartridges [um]",
-        "type": "tuple",
-        "element_type": "float"
+        "type": "tuple"
     },
     "teta0": {
         "default": 6e-05,

@@ -34,7 +34,7 @@ class CRL:
                  teta0=None,  # [rad]
                  data_file=None,
                  use_numpy=None,
-                 **kwargs):
+                 outfile=None):
 
         defaults = _read_json(DEFAULTS_FILE)
 
@@ -55,6 +55,7 @@ class CRL:
         self.teta0 = teta0
         self.data_file = os.path.join(DAT_DIR, data_file)
         self.use_numpy = use_numpy
+        self.outfile = outfile
 
         # Prepare other necessary variables:
         self.read_config_file()  # defines self.config_file and self.transfocator_config
@@ -73,6 +74,10 @@ class CRL:
         # Perform calculations:
         self.calc_T_total()
         self.calc_y_teta()
+        self.calc_real_lens()
+        self.calc_ideal_lens()
+        self.d = self.calc_delta_focus(self.p1)
+        self.d_ideal = self.calc_delta_focus(self.p1_ideal)
 
     def calc_delta_focus(self, p):
         if p is not None:
@@ -90,7 +95,6 @@ class CRL:
             self.p1_ideal = 1 / (1 / self.ideal_focus - 1 / self.p0)
         else:
             print('Radii of the specified lenses ({}) are different! Cannot calculate ideal lens.'.format(self.radii))
-        return self.p1_ideal
 
     def calc_lens_array(self, radius, n):
         """Calculate accumulated T_fs for one cartridge with fixed radius.
@@ -107,7 +111,6 @@ class CRL:
 
     def calc_real_lens(self):
         self.p1 = self.y / math.tan(math.pi - self.teta)
-        return self.p1
 
     def calc_T_total(self):
         dist_list = []
@@ -149,6 +152,25 @@ class CRL:
             'radii': self.radii,
             'total_lenses': self.n
         }
+
+    def print_result(self):
+        python_dict = {
+            'p0': self.p0,
+            'p1': self.p1,
+            'p1 ideal': self.p1_ideal,
+            'd': self.d,
+            'd ideal': self.d_ideal,
+        }
+        json_dict = json.dumps(
+            python_dict,
+            sort_keys=True,
+            indent=4,
+            separators=(',', ': '),
+        )
+        print(json_dict)
+        if self.outfile:
+            with open(self.outfile, 'w') as f:
+                f.write(json_dict)
 
     def read_config_file(self):
         self.config_file = os.path.join(CONFIG_DIR, '{}_crl.json'.format(self.beamline))
@@ -379,31 +401,7 @@ if __name__ == '__main__':
 
         parser.add_argument(*args, **kwargs)
 
-    parser.add_argument('-o', '--output_file', dest='outfile', help='output JSON file.')
     args = parser.parse_args()
 
     crl = CRL(**args.__dict__)
-    p1 = crl.calc_real_lens()
-    p1_ideal = crl.calc_ideal_lens()
-    d = crl.calc_delta_focus(p1)
-    d_ideal = crl.calc_delta_focus(p1_ideal)
-
-    python_dict = {
-        'p0': crl.p0,
-        'p1': p1,
-        'p1 ideal': p1_ideal,
-        'd': d,
-        'd ideal': d_ideal,
-    }
-
-    json_dict = json.dumps(
-        python_dict,
-        sort_keys=True,
-        indent=4,
-        separators=(',', ': '),
-    )
-
-    print(json_dict)
-    if args.outfile:
-        with open(args.outfile, 'w') as f:
-            f.write(json_dict)
+    crl.print_result()
