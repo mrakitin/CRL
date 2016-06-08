@@ -15,7 +15,6 @@ except:
     pass
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
-print('script path: {}'.format(SCRIPT_PATH))
 DAT_DIR = os.path.join(SCRIPT_PATH, 'dat')
 CONFIG_DIR = os.path.join(SCRIPT_PATH, 'configs')
 DEFAULTS_FILE = os.path.join(CONFIG_DIR, 'defaults.json')
@@ -112,6 +111,7 @@ class CRL:
 
     def calc_real_lens(self):
         self.p1 = self.y / math.tan(math.pi - self.teta)
+        self.f = 1 / (1 / self.p0 + 1 / self.p1)
 
     def calc_T_total(self):
         dist_list = []
@@ -154,35 +154,41 @@ class CRL:
             'total_lenses': self.n
         }
 
-    def print_result(self, plain_text=True):
+    def print_result(self, output_format='json'):
         python_data = {
             'p0': self.p0,
             'p1': self.p1,
-            'p1 ideal': self.p1_ideal,
+            'p1_ideal': self.p1_ideal,
             'd': self.d,
-            'd ideal': self.d_ideal,
+            'd_ideal': self.d_ideal,
+            'f': self.f,
         }
-
-        if plain_text:
-            json_data = 'P0: {}, P1: {}, P1 ideal: {}, d: {}, d ideal: {}'.format(
-                self.p0,
-                self.p1,
-                self.p1_ideal,
-                self.d,
-                self.d_ideal,
-            )
-        else:
-            json_data = json.dumps(
+        if output_format == 'csv':
+            header = []
+            data = []
+            for key in sorted(python_data.keys()):
+                header.append(key)
+                data.append(python_data[key])
+            output_text = '{}\n{}\n'.format(
+                ', '.join(header),
+                ', '.join([str(x) for x in data]))
+        elif output_format == 'json':
+            output_text = json.dumps(
                 python_data,
                 sort_keys=True,
                 indent=4,
                 separators=(',', ': '),
             )
+        else:  # plain text
+            output_list = []
+            for key in sorted(python_data.keys()):
+                output_list.append('{}: {}'.format(key, python_data[key]))
+            output_text = ', '.join(output_list)
 
-        print(json_data)
+        print(output_text)
         if self.outfile:
             with open(self.outfile, 'w') as f:
-                f.write(json_data)
+                f.write(output_text)
 
     def read_config_file(self):
         self.config_file = os.path.join(CONFIG_DIR, '{}_crl.json'.format(self.beamline))
@@ -416,4 +422,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     crl = CRL(**args.__dict__)
-    crl.print_result()
+    crl.print_result(output_format='csv')
+    # crl.print_result(output_format='json')
+    # crl.print_result(output_format='plain_text')
