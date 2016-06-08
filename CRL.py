@@ -68,10 +68,15 @@ class CRL:
         self.y = None
         self.teta = None
         self.ideal_focus = None
-        self.p1 = None
-        self.p1_ideal = None
+        self.p1 = 0
+        self.p1_ideal = 0
+        self.d = 0
+        self.d_ideal = 0
+        self.f = 0
 
         # Perform calculations:
+        if cart_ids[0] < 0:
+            return
         self.calc_T_total()
         self.calc_y_teta()
         self.calc_real_lens()
