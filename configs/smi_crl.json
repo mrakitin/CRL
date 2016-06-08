@@ -1,0 +1,44 @@
+{
+    "crl": [
+        {
+            "id": 1,
+            "name": "T_1_500",
+            "offset_cart": 2
+        },
+        {
+            "id": 2,
+            "name": "T_2_50",
+            "offset_cart": 3
+        },
+        {
+            "id": 3,
+            "name": "T_8_500",
+            "offset_cart": 4
+        },
+        {
+            "id": 4,
+            "name": "T_4_50",
+            "offset_cart": 5
+        },
+        {
+            "id": 5,
+            "name": "T_1_200",
+            "offset_cart": 6
+        },
+        {
+            "id": 6,
+            "name": "T_16_50",
+            "offset_cart": 7
+        },
+        {
+            "id": 7,
+            "name": "T_8_50",
+            "offset_cart": 9
+        },
+        {
+            "id": 8,
+            "name": "T_1_50",
+            "offset_cart": 11
+        }
+    ]
+}

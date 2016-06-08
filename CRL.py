@@ -1,8 +1,11 @@
 # -*- coding: utf-8 -*-
+# Author: Maksim Rakitin (BNL)
+# 2016
 
 from __future__ import division
 
 import copy
+import json
 import math
 import os
 
@@ -15,67 +18,27 @@ except:
 NUMPY = False  # explicitly avoid usage of NumPy.
 
 DAT_DIR = 'dat'
-TRANSFOCATOR_CONFIG = [
-    {
-        'id': 1,
-        'name': 'T_1_500',
-        'offset_cart': 2,
-    },
-    {
-        'id': 2,
-        'name': 'T_2_50',
-        'offset_cart': 3,
-    },
-    {
-        'id': 3,
-        'name': 'T_8_500',
-        'offset_cart': 4,
-    },
-    {
-        'id': 4,
-        'name': 'T_4_50',
-        'offset_cart': 5,
-    },
-    {
-        'id': 5,
-        'name': 'T_1_200',
-        'offset_cart': 6,
-    },
-    {
-        'id': 6,
-        'name': 'T_16_50',
-        'offset_cart': 7,
-    },
-    {
-        'id': 7,
-        'name': 'T_8_50',
-        'offset_cart': 9,
-    },
-    {
-        'id': 8,
-        'name': 'T_1_50',
-        'offset_cart': 11,
-    },
-]
+CONFIG_DIR = 'configs'
 
 
 class CRL:
     def __init__(self,
                  cart_ids,
-                 dl_lens=2e-3,
-                 dl_cart=30e-3,
-                 r_array=(50, 200, 500),
-                 lens_array=(1, 2, 4, 8, 16),
-                 p0=6.2,
-                 d_ssa_focus=8.1,
-                 energy=24000.0,
-                 teta0=60e-6,
-                 transfocator_config=TRANSFOCATOR_CONFIG,
+                 beamline='smi',
+                 dl_lens=2e-3,  # distance between two lenses within a cartridge [m]
+                 dl_cart=30e-3,  # distance between centers of two neighbouring cartridges [m]
+                 r_array=(50, 200, 500),  # radii of available lenses in different cartridges [um]
+                 lens_array=(1, 2, 4, 8, 16),  # possible number of lenses in cartridges
+                 p0=6.2,  # dist from z=50.9 m to first lens in most upstream cart at most upstream pos of transfocator
+                 d_ssa_focus=8.1,  # [m]
+                 energy=24000.0,  # [eV]
+                 teta0=60e-6,  # [rad]
                  data_file=os.path.join(DAT_DIR, 'Be_delta.dat'),
                  use_numpy=NUMPY):
 
         # Input variables:
         self.cart_ids = cart_ids
+        self.beamline = beamline
         self.dl_lens = dl_lens
         self.dl_cart = dl_cart
         self.r_array = r_array
@@ -84,14 +47,16 @@ class CRL:
         self.d_ssa_focus = d_ssa_focus
         self.energy = energy
         self.teta0 = teta0
-        self.transfocator_config = transfocator_config
         self.data_file = data_file
         self.use_numpy = use_numpy
 
         # Prepare other necessary variables:
-        self._process_lens_config()  # defines self.lens_config
+        self.read_config_file()  # defines self.config_file and self.transfocator_config
+        self._get_lens_config()  # defines self.lens_config
         self._calc_delta()  # defines self.delta
         self._calc_y0()  # defines self.y0
+        self.radii = None
+        self.n = None
         self.T = None
         self.y = None
         self.teta = None
@@ -115,19 +80,13 @@ class CRL:
         self.ideal_focus = radius / (2 * n * self.delta)
 
     def calc_ideal_lens(self):
-        n = 0
-        radii = []
-        for i in self.cart_ids:
-            name = self._find_name_by_id(i)
-            lens = self._find_lens_parameters_by_name(name)
-            n += lens['lens_number']
-            radii.append(lens['radius'])
+        self._get_radii_n()
         tolerance = 1e-8
-        if abs(sum(radii) / len(radii) - radii[0]) < tolerance:
-            self.calc_ideal_focus(radii[0], n)
-            self.calc_p1_ideal()
+        if abs(sum(self.radii) / len(self.radii) - self.radii[0]) < tolerance:
+            self.calc_ideal_focus(self.radii[0], self.n)
+            self.p1_ideal = 1 / (1 / self.ideal_focus - 1 / self.p0)
         else:
-            print('Radii of the specified lenses ({}) are different! Cannot calculate the ideal lens.'.format(radii))
+            print('Radii of the specified lenses ({}) are different! Cannot calculate ideal lens.'.format(self.radii))
         return self.p1_ideal
 
     def calc_lens_array(self, radius, n):
@@ -143,14 +102,8 @@ class CRL:
         T_fs_accum = self._dot(self._matrix_power(self._dot(T_fs, T_dl), n - 1), T_fs)
         return T_fs_accum
 
-    def calc_p1(self):
-        self.p1 = self.y / math.tan(math.pi - self.teta)
-
-    def calc_p1_ideal(self):
-        self.p1_ideal = 1 / (1 / self.ideal_focus - 1 / self.p0)
-
     def calc_real_lens(self):
-        self.calc_p1()
+        self.p1 = self.y / math.tan(math.pi - self.teta)
         return self.p1
 
     def calc_T_total(self):
@@ -185,6 +138,21 @@ class CRL:
 
     def calc_y_teta(self):
         (self.y, self.teta) = self._dot(self.T, [self.y0, self.teta0])
+
+    def get_inserted_lenses(self):
+        self._get_radii_n()
+        return {
+            'ids': self.cart_ids,
+            'radii': self.radii,
+            'total_lenses': self.n
+        }
+
+    def read_config_file(self):
+        self.config_file = os.path.join(CONFIG_DIR, '{}_crl.json'.format(self.beamline))
+        if not os.path.isfile(self.config_file):
+            raise Exception('Config file <{}> not found. Check the name of the file/beamline.'.format(self.config_file))
+        with open(self.config_file, 'r') as f:
+            self.transfocator_config = json.load(f)['crl']
 
     def _calc_delta(self):
         self.delta = None
@@ -296,37 +264,18 @@ class CRL:
                 break
         return element_number
 
-    def _find_name_by_id(self, id):
-        real_id = self._find_element_by_id(id)
-        name = self.transfocator_config[real_id]['name']
-        return name
-
     def _find_lens_parameters_by_id(self, id):
         return self._find_lens_parameters_by_name(self._find_name_by_id(id))
 
     def _find_lens_parameters_by_name(self, name):
         return self.lens_config[name]
 
-    def _matrix_power(self, A, n):
-        """Multiply matrix A n times.
+    def _find_name_by_id(self, id):
+        real_id = self._find_element_by_id(id)
+        name = self.transfocator_config[real_id]['name']
+        return name
 
-        :param A: input square matrix.
-        :param n: power.
-        :return B: resulted matrix.
-        """
-        if self.use_numpy:
-            B = np.linalg.matrix_power(A, n)
-        else:
-            if n > 0:
-                B = copy.deepcopy(A)
-                for i in range(n - 1):
-                    B = self._dot(A, B)
-            else:
-                B = [[1, 0],
-                     [0, 1]]
-        return B
-
-    def _process_lens_config(self):
+    def _get_lens_config(self):
         self.lens_config = {}
         for i in self.r_array:
             for j in self.lens_array:
@@ -335,20 +284,62 @@ class CRL:
                     'lens_number': j,
                 }
 
+    def _get_radii_n(self):
+        self.radii = []
+        self.n = 0
+        for i in self.cart_ids:
+            name = self._find_name_by_id(i)
+            lens = self._find_lens_parameters_by_name(name)
+            self.radii.append(lens['radius'])
+            self.n += lens['lens_number']
+
+    def _matrix_power(self, A, n):
+        """Multiply matrix A n times.
+
+        :param A: input square matrix.
+        :param n: power.
+        :return B: resulted matrix.
+        """
+        if len(A) != len(A[0]):
+            raise Exception('Matrix is not square: {} x {}'.format(len(A), len(A[0])))
+
+        if self.use_numpy:
+            B = np.linalg.matrix_power(A, n)
+        else:
+            if n > 0:
+                B = copy.deepcopy(A)
+                for i in range(n - 1):
+                    B = self._dot(A, B)
+            elif n == 0:
+                B = []
+                for i in range(len(A)):
+                    row = []
+                    for j in range(len(A[0])):
+                        if i == j:
+                            row.append(1)
+                        else:
+                            row.append(0)
+                    B.append(row)
+            else:
+                raise Exception('Negative power <{}> is not supported for matrix power operation.'.format(n))
+
+        return B
+
 
 if __name__ == '__main__':
-    l = [1, 2, 3, 4, 5, 6, 7, 8]
-    e = 24000
-    p0 = 6.2
-    crl = CRL(l, energy=e, use_numpy=True, p0=p0)
-    p1 = crl.calc_real_lens()
-    p1_ideal = crl.calc_ideal_lens()
+    l = [2, 4, 6, 7, 8]
+    e = 21500
+    p0 = 6.52
 
-    crl2 = CRL(l, energy=e, use_numpy=False, p0=p0)
-    p2 = crl.calc_real_lens()
-    p2_ideal = crl.calc_ideal_lens()
+    crl1 = CRL(cart_ids=l, energy=e, p0=p0, use_numpy=True)
+    p1 = crl1.calc_real_lens()
+    p1_ideal = crl1.calc_ideal_lens()
 
-    d = crl.calc_delta_focus(p1)
-    d_ideal = crl.calc_delta_focus(p1_ideal)
+    crl2 = CRL(cart_ids=l, energy=e, p0=p0, use_numpy=False)
+    p2 = crl2.calc_real_lens()
+    p2_ideal = crl2.calc_ideal_lens()
 
-    print('P0: {}, P1: {}, P1 ideal: {}'.format(crl.p0, p1, p1_ideal))
+    d = crl1.calc_delta_focus(p1)
+    d_ideal = crl1.calc_delta_focus(p1_ideal)
+
+    print('P0: {}, P1: {}, P1 ideal: {}'.format(crl1.p0, p1, p1_ideal))
