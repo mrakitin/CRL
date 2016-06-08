@@ -11,13 +11,12 @@ import os
 
 try:
     import numpy as np
-
-    NUMPY = True
 except:
-    NUMPY = False
+    pass
 
-DAT_DIR = 'dat'
-CONFIG_DIR = 'configs'
+SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
+DAT_DIR = os.path.join(SCRIPT_PATH, 'dat')
+CONFIG_DIR = os.path.join('configs')
 DEFAULTS_FILE = os.path.join(CONFIG_DIR, 'defaults.json')
 
 
@@ -34,7 +33,8 @@ class CRL:
                  energy=None,  # [eV]
                  teta0=None,  # [rad]
                  data_file=None,
-                 use_numpy=None):
+                 use_numpy=None,
+                 **kwargs):
 
         defaults = _read_json(DEFAULTS_FILE)
 
@@ -379,6 +379,7 @@ if __name__ == '__main__':
 
         parser.add_argument(*args, **kwargs)
 
+    parser.add_argument('-o', '--output_file', dest='outfile', help='output JSON file.')
     args = parser.parse_args()
 
     crl = CRL(**args.__dict__)
@@ -387,4 +388,22 @@ if __name__ == '__main__':
     d = crl.calc_delta_focus(p1)
     d_ideal = crl.calc_delta_focus(p1_ideal)
 
-    print('P0: {}, P1: {}, P1 ideal: {}, d: {}, d ideal: {}'.format(crl.p0, p1, p1_ideal, d, d_ideal))
+    python_dict = {
+        'p0': crl.p0,
+        'p1': p1,
+        'p1 ideal': p1_ideal,
+        'd': d,
+        'd ideal': d_ideal,
+    }
+
+    json_dict = json.dumps(
+        python_dict,
+        sort_keys=True,
+        indent=4,
+        separators=(',', ': '),
+    )
+
+    print(json_dict)
+    if args.outfile:
+        with open(args.outfile, 'w') as f:
+            f.write(json_dict)
