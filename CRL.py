@@ -153,24 +153,35 @@ class CRL:
             'total_lenses': self.n
         }
 
-    def print_result(self):
-        python_dict = {
+    def print_result(self, plain_text=True):
+        python_data = {
             'p0': self.p0,
             'p1': self.p1,
             'p1 ideal': self.p1_ideal,
             'd': self.d,
             'd ideal': self.d_ideal,
         }
-        json_dict = json.dumps(
-            python_dict,
-            sort_keys=True,
-            indent=4,
-            separators=(',', ': '),
-        )
-        print(json_dict)
+
+        if plain_text:
+            json_data = 'P0: {}, P1: {}, P1 ideal: {}, d: {}, d ideal: {}'.format(
+                self.p0,
+                self.p1,
+                self.p1_ideal,
+                self.d,
+                self.d_ideal,
+            )
+        else:
+            json_data = json.dumps(
+                python_data,
+                sort_keys=True,
+                indent=4,
+                separators=(',', ': '),
+            )
+
+        print(json_data)
         if self.outfile:
             with open(self.outfile, 'w') as f:
-                f.write(json_dict)
+                f.write(json_data)
 
     def read_config_file(self):
         self.config_file = os.path.join(CONFIG_DIR, '{}_crl.json'.format(self.beamline))
