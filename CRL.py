@@ -15,26 +15,32 @@ try:
     NUMPY = True
 except:
     NUMPY = False
-NUMPY = False  # explicitly avoid usage of NumPy.
 
 DAT_DIR = 'dat'
 CONFIG_DIR = 'configs'
+DEFAULTS_FILE = os.path.join(CONFIG_DIR, 'defaults.json')
 
 
 class CRL:
     def __init__(self,
                  cart_ids,
-                 beamline='smi',
-                 dl_lens=2e-3,  # distance between two lenses within a cartridge [m]
-                 dl_cart=30e-3,  # distance between centers of two neighbouring cartridges [m]
-                 r_array=(50, 200, 500),  # radii of available lenses in different cartridges [um]
-                 lens_array=(1, 2, 4, 8, 16),  # possible number of lenses in cartridges
-                 p0=6.2,  # dist from z=50.9 m to first lens in most upstream cart at most upstream pos of transfocator
-                 d_ssa_focus=8.1,  # [m]
-                 energy=24000.0,  # [eV]
-                 teta0=60e-6,  # [rad]
-                 data_file='Be_delta.dat',
-                 use_numpy=NUMPY):
+                 beamline=None,
+                 dl_lens=None,  # distance between two lenses within a cartridge [m]
+                 dl_cart=None,  # distance between centers of two neighbouring cartridges [m]
+                 r_array=None,  # radii of available lenses in different cartridges [um]
+                 lens_array=None,  # possible number of lenses in cartridges
+                 p0=None,  # dist from z=50.9 m to first lens in most upstream cart at most upstream pos of transfocator
+                 d_ssa_focus=None,  # [m]
+                 energy=None,  # [eV]
+                 teta0=None,  # [rad]
+                 data_file=None,
+                 use_numpy=None):
+
+        defaults = _read_json(DEFAULTS_FILE)
+
+        for key, default_val in defaults.items():
+            if locals()[key] is None:
+                exec (key + ' = default_val["default"]')
 
         # Input variables:
         self.cart_ids = cart_ids
@@ -146,10 +152,7 @@ class CRL:
 
     def read_config_file(self):
         self.config_file = os.path.join(CONFIG_DIR, '{}_crl.json'.format(self.beamline))
-        if not os.path.isfile(self.config_file):
-            raise Exception('Config file <{}> not found. Check the name of the file/beamline.'.format(self.config_file))
-        with open(self.config_file, 'r') as f:
-            self.transfocator_config = json.load(f)['crl']
+        self.transfocator_config = _read_json(self.config_file)['crl']
 
     def _calc_delta(self):
         self.delta = None
@@ -323,50 +326,58 @@ class CRL:
         return B
 
 
+def _read_json(file_name):
+    try:
+        with open(file_name, 'r') as f:
+            data = json.load(f)
+    except:
+        raise Exception('The specified file <{}> not found!'.format(file_name))
+    return data
+
+
 if __name__ == '__main__':
     import argparse
 
     description = 'Calculate real CRL under-/over-focusing comparing with ideal lens.'
+
+    defaults = _read_json(DEFAULTS_FILE)
+
+    # Processing arguments:
+    required_args = []
+    optional_args = []
+
+    for key in sorted(defaults.keys()):
+        if defaults[key]['default'] is None:
+            required_args.append(key)
+        else:
+            optional_args.append(key)
+
     parser = argparse.ArgumentParser(description=description)
 
-    defaults_file = os.path.join(CONFIG_DIR, 'defaults.json')
-    with open(defaults_file, 'r') as f:
-        defaults = json.load(f)
+    for key in required_args + optional_args:
+        args = [
+            '--{}'.format(key),
+        ]
+        kwargs = {
+            'dest': key,
+            'default': defaults[key]['default'],
+            'required': False,
+            'type': eval(defaults[key]['type']),
+            'nargs': None,
+            'action': None,
+            'help': '{}.'.format(defaults[key]['help']),
+        }
+        if defaults[key]['default'] is None:
+            kwargs['required'] = True
 
-        # Processing arguments:
-        required_args = []
-        optional_args = []
+        if defaults[key]['type'] == bool:
+            kwargs['action'] = 'store_true'
 
-        for key in sorted(defaults.keys()):
-            if defaults[key]['default'] is None:
-                required_args.append(key)
-            else:
-                optional_args.append(key)
+        if defaults[key]['type'] in ["list", "tuple"]:
+            kwargs['type'] = eval(defaults[key]['element_type'])
+            kwargs['nargs'] = '+'
 
-        for key in required_args + optional_args:
-            args = [
-                '--{}'.format(key),
-            ]
-            kwargs = {
-                'dest': key,
-                'default': defaults[key]['default'],
-                'required': False,
-                'type': eval(defaults[key]['type']),
-                'nargs': None,
-                'action': None,
-                'help': '{}.'.format(defaults[key]['help']),
-            }
-            if defaults[key]['default'] is None:
-                kwargs['required'] = True
-
-            if defaults[key]['type'] == bool:
-                kwargs['action'] = 'store_true'
-
-            if defaults[key]['type'] in ["list", "tuple"]:
-                kwargs['type'] = eval(defaults[key]['element_type'])
-                kwargs['nargs'] = '+'
-
-            parser.add_argument(*args, **kwargs)
+        parser.add_argument(*args, **kwargs)
 
     args = parser.parse_args()
 
