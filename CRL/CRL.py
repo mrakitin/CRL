@@ -15,6 +15,10 @@ except:
     pass
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
+
+# Fix for Jython:
+SCRIPT_PATH = SCRIPT_PATH.replace(os.path.join(format(os.environ['HOME']), '.jython-cache/cachedir/classes'), '')
+
 DAT_DIR = os.path.join(SCRIPT_PATH, 'dat')
 CONFIG_DIR = os.path.join(SCRIPT_PATH, 'configs')
 DEFAULTS_FILE = os.path.join(CONFIG_DIR, 'defaults.json')
