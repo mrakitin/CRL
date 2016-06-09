@@ -21,43 +21,17 @@ DEFAULTS_FILE = os.path.join(CONFIG_DIR, 'defaults.json')
 
 
 class CRL:
-    def __init__(self,
-                 cart_ids,
-                 beamline=None,
-                 dl_lens=None,  # distance between two lenses within a cartridge [m]
-                 dl_cart=None,  # distance between centers of two neighbouring cartridges [m]
-                 r_array=None,  # radii of available lenses in different cartridges [um]
-                 lens_array=None,  # possible number of lenses in cartridges
-                 p0=None,  # dist from z=50.9 m to first lens in most upstream cart at most upstream pos of transfocator
-                 d_ssa_focus=None,  # [m]
-                 energy=None,  # [eV]
-                 teta0=None,  # [rad]
-                 data_file=None,
-                 use_numpy=None,
-                 outfile=None):
-
-        defaults = _read_json(DEFAULTS_FILE)
-
+    def __init__(self, **kwargs):
+        # Get input variables:
+        defaults = _read_json(DEFAULTS_FILE)['defaults']
         for key, default_val in defaults.items():
-            if locals()[key] is None:
-                exec (key + ' = default_val["default"]')
-
-        # Input variables:
-        self.cart_ids = cart_ids
-        self.beamline = beamline
-        self.dl_lens = dl_lens
-        self.dl_cart = dl_cart
-        self.r_array = r_array
-        self.lens_array = lens_array
-        self.p0 = p0
-        self.d_ssa_focus = d_ssa_focus
-        self.energy = energy
-        self.teta0 = teta0
-        self.data_file = os.path.join(DAT_DIR, data_file)
-        self.use_numpy = use_numpy
-        self.outfile = outfile
+            if key in kwargs.keys():
+                setattr(self, key, kwargs[key])
+            elif not hasattr(self, key) or getattr(self, key) is None:
+                setattr(self, key, default_val['default'])
 
         # Prepare other necessary variables:
+        self.data_file = os.path.join(DAT_DIR, self.data_file)
         self.read_config_file()  # defines self.config_file and self.transfocator_config
         self._get_lens_config()  # defines self.lens_config
         self._calc_delta()  # defines self.delta
@@ -75,7 +49,7 @@ class CRL:
         self.f = 0
 
         # Perform calculations:
-        if cart_ids[0] < 0:
+        if self.cart_ids is None or self.cart_ids[0] < 0:
             return
         self.calc_T_total()
         self.calc_y_teta()
@@ -159,7 +133,7 @@ class CRL:
             'total_lenses': self.n
         }
 
-    def print_result(self, output_format='json'):
+    def print_result(self, output_format=None):
         python_data = {
             'p0': self.p0,
             'p1': self.p1,
@@ -168,6 +142,9 @@ class CRL:
             'd_ideal': self.d_ideal,
             'f': self.f,
         }
+        if not output_format:
+            output_format = self.output_format
+
         if output_format == 'csv':
             header = []
             data = []
@@ -375,17 +352,19 @@ def _read_json(file_name):
     try:
         with open(file_name, 'r') as f:
             data = json.load(f)
-    except:
+    except IOError:
         raise Exception('The specified file <{}> not found!'.format(file_name))
+    except ValueError:
+        raise Exception('Malformed JSON file <{}>!'.format(file_name))
     return data
 
 
 if __name__ == '__main__':
     import argparse
 
-    description = 'Calculate real CRL under-/over-focusing comparing with ideal lens.'
-
-    defaults = _read_json(DEFAULTS_FILE)
+    data = _read_json(DEFAULTS_FILE)
+    description = data['description']
+    defaults = data['defaults']
 
     # Processing arguments:
     required_args = []

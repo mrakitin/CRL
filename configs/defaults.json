@@ -1,80 +1,88 @@
 {
-    "beamline": {
-        "default": "smi",
-        "help": "beamline name",
-        "type": "str"
+    "defaults": {
+        "beamline": {
+            "default": "smi",
+            "help": "beamline name",
+            "type": "str"
+        },
+        "cart_ids": {
+            "default": null,
+            "element_type": "int",
+            "help": "cartridges ids",
+            "type": "list"
+        },
+        "d_ssa_focus": {
+            "default": 8.1,
+            "help": "Distance from SSA??? [m]",
+            "type": "float"
+        },
+        "data_file": {
+            "default": "Be_delta.dat",
+            "help": "data file with delta values for the material of the CRL (e.g., Be)",
+            "type": "str"
+        },
+        "dl_cart": {
+            "default": 0.03,
+            "help": "distance between centers of two neighbouring cartridges [m]",
+            "type": "float"
+        },
+        "dl_lens": {
+            "default": 0.002,
+            "help": "distance between two lenses within a cartridge [m]",
+            "type": "float"
+        },
+        "energy": {
+            "default": 24000.0,
+            "help": "photon energy [eV]",
+            "type": "float"
+        },
+        "lens_array": {
+            "default": [
+                1,
+                2,
+                4,
+                8,
+                16
+            ],
+            "element_type": "float",
+            "help": "possible number of lenses in cartridges",
+            "type": "tuple"
+        },
+        "outfile": {
+            "default": false,
+            "help": "output file (CSV, JSON, plain text)",
+            "type": "str"
+        },
+        "output_format": {
+            "default": "csv",
+            "help": "output file format",
+            "type": "str"
+        },
+        "p0": {
+            "default": 6.2,
+            "help": "distance from z=50.9 m to the first lens in the most upstream cartridge at the most upstream position of the transfocator [m]",
+            "type": "float"
+        },
+        "r_array": {
+            "default": [
+                50,
+                200,
+                500
+            ],
+            "element_type": "float",
+            "help": "radii of available lenses in different cartridges [um]",
+            "type": "tuple"
+        },
+        "teta0": {
+            "default": 6e-05,
+            "help": "divergence of the beam before CRL [rad]",
+            "type": "float"
+        },
+        "use_numpy": {
+            "default": false,
+            "help": "use NumPy for operations with matrices",
+            "type": "bool"
+        }
     },
-    "cart_ids": {
-        "default": null,
-        "element_type": "int",
-        "help": "cartridges ids",
-        "type": "list"
-    },
-    "d_ssa_focus": {
-        "default": 8.1,
-        "help": "Distance from SSA??? [m]",
-        "type": "float"
-    },
-    "data_file": {
-        "default": "Be_delta.dat",
-        "help": "data file with delta values for the material of the CRL (e.g., Be)",
-        "type": "str"
-    },
-    "dl_cart": {
-        "default": 0.03,
-        "help": "distance between centers of two neighbouring cartridges [m]",
-        "type": "float"
-    },
-    "dl_lens": {
-        "default": 0.002,
-        "help": "distance between two lenses within a cartridge [m]",
-        "type": "float"
-    },
-    "energy": {
-        "default": 24000.0,
-        "help": "photon energy [eV]",
-        "type": "float"
-    },
-    "lens_array": {
-        "default": [
-            1,
-            2,
-            4,
-            8,
-            16
-        ],
-        "element_type": "float",
-        "help": "possible number of lenses in cartridges",
-        "type": "tuple"
-    },
-    "outfile": {
-        "default": false,
-        "help": "output JSON file",
-        "type": "str"
-    },
-    "p0": {
-        "default": 6.2,
-        "help": "distance from z=50.9 m to the first lens in the most upstream cartridge at the most upstream position of the transfocator [m]",
-        "type": "float"
-    },
-    "r_array": {
-        "default": [
-            50,
-            200,
-            500
-        ],
-        "element_type": "float",
-        "help": "radii of available lenses in different cartridges [um]",
-        "type": "tuple"
-    },
-    "teta0": {
-        "default": 6e-05,
-        "help": "divergence of the beam before CRL [rad]",
-        "type": "float"
-    },
-    "use_numpy": {
-        "default": false,
-        "help": "use NumPy for operations with matrices",
-        "type": "bool"
-    }
+    "description": "Calculate real CRL under-/over-focusing comparing with the ideal lens."
 }
