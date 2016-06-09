@@ -106,11 +106,10 @@ class CRL:
         R_list = []
         N_list = []
         for i in range(len(self.cart_ids)):
-            for j in range(len(self.transfocator_config)):
-                if self.cart_ids[i] == self.transfocator_config[j]['id']:
-                    name = self.transfocator_config[j]['name']
-                    R_list.append(self.lens_config[name]['radius'])
-                    N_list.append(self.lens_config[name]['lens_number'])
+            j = self._find_element_by_id(self.cart_ids[i])
+            name = self.transfocator_config[j]['name']
+            R_list.append(self.lens_config[name]['radius'])
+            N_list.append(self.lens_config[name]['lens_number'])
 
         if len(self.cart_ids) == 1:
             self.T = self.calc_lens_array(R_list[0], N_list[0])

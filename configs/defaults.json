@@ -8,7 +8,7 @@
         },
         "cart_ids": {
             "default": null,
-            "element_type": "int",
+            "element_type": "str",
             "help": "cartridges ids",
             "short_argument": "c",
             "type": "list"
