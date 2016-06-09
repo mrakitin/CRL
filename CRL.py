@@ -48,9 +48,15 @@ class CRL:
         self.d_ideal = 0
         self.f = 0
 
-        # Perform calculations:
+        # Check for incorrect input:
         if self.cart_ids is None or self.cart_ids[0] < 0:
             return
+        len_total = len(self.cart_ids)
+        len_unique = len(set(self.cart_ids))
+        if len_total != len_unique:
+            raise Exception('Number of non-unique cartridge ids: {}'.format(len_total - len_unique + 1))
+
+        # Perform calculations:
         self.calc_T_total()
         self.calc_y_teta()
         self.calc_real_lens()
@@ -360,6 +366,13 @@ def _read_json(file_name):
 
 
 if __name__ == '__main__':
+    '''
+    Example of execution:
+
+    python CRL.py --cart_ids 2 4 6 7 8 --energy=21500 --p0=6.52
+    "d","d_ideal","f","p0","p1","p1_ideal"
+    0.000372455276869,-0.0669574652539,1.04864377922,6.52,1.24962754472,1.31695746525
+    '''
     import argparse
 
     data = _read_json(DEFAULTS_FILE)
