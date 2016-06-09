@@ -23,19 +23,14 @@ DEFAULTS_FILE = os.path.join(CONFIG_DIR, 'defaults.json')
 class CRL:
     def __init__(self, **kwargs):
         # Get input variables:
-        defaults = _read_json(DEFAULTS_FILE)['defaults']
-        for key, default_val in defaults.items():
+        self.defaults = _convert_types(_read_json(DEFAULTS_FILE)['defaults'])
+        for key, default_val in self.defaults.items():
             if key in kwargs.keys():
                 setattr(self, key, kwargs[key])
             elif not hasattr(self, key) or getattr(self, key) is None:
                 setattr(self, key, default_val['default'])
 
-        # Prepare other necessary variables:
-        self.data_file = os.path.join(DAT_DIR, self.data_file)
-        self.read_config_file()  # defines self.config_file and self.transfocator_config
-        self._get_lens_config()  # defines self.lens_config
-        self._calc_delta()  # defines self.delta
-        self._calc_y0()  # defines self.y0
+        # Initialize non-input variables:
         self.radii = None
         self.n = None
         self.T = None
@@ -48,13 +43,17 @@ class CRL:
         self.d_ideal = 0
         self.f = 0
 
-        # Check for incorrect input:
-        if self.cart_ids is None or self.cart_ids[0] < 0:
+        # Read CRL config and check inputs:
+        self.read_config_file()  # defines self.config_file and self.transfocator_config
+        self._get_available_ids()  # defines self.available_ids
+        if not self._check_ids():
             return
-        len_total = len(self.cart_ids)
-        len_unique = len(set(self.cart_ids))
-        if len_total != len_unique:
-            raise Exception('Number of non-unique cartridge ids: {}'.format(len_total - len_unique + 1))
+
+        # Initialize non-input variables using methods:
+        self.data_file = os.path.join(DAT_DIR, self.data_file)
+        self._get_lens_config()  # defines self.lens_config
+        self._calc_delta()  # defines self.delta
+        self._calc_y0()  # defines self.y0
 
         # Perform calculations:
         self.calc_T_total()
@@ -233,8 +232,6 @@ class CRL:
 
         el_num1 = self._find_element_by_id(id1)
         el_num2 = self._find_element_by_id(id2)
-        if el_num1 is None or el_num2 is None:
-            raise Exception('Provided id\'s are not valid!')
 
         lens_num1 = self.lens_config[self.transfocator_config[el_num1]['name']]['lens_number']
         coord1 = self.transfocator_config[el_num1]['offset_cart'] * self.dl_cart
@@ -258,6 +255,24 @@ class CRL:
 
     def _calc_y0(self):
         self.y0 = self.p0 * math.tan(self.teta0)
+
+    def _check_ids(self):
+        """Check for incorrect input."""
+        if not self.cart_ids:
+            return False
+
+        for input_id in self.cart_ids:
+            if input_id not in self.available_ids:
+                msg = 'Specified cart_id <{}> not in the list of available ids: <{}>.'
+                raise Exception(msg.format(input_id, ', '.join(self.available_ids)))
+
+        len_total = len(self.cart_ids)
+        len_unique = len(set(self.cart_ids))
+        if len_total != len_unique:
+            msg = 'Number of non-unique cartridge ids: {}'
+            raise Exception(msg.format(len_total - len_unique + 1))
+
+        return True
 
     def _dot(self, A, B):
         """Multiplies matrix A by matrix B."""
@@ -301,6 +316,11 @@ class CRL:
         real_id = self._find_element_by_id(id)
         name = self.transfocator_config[real_id]['name']
         return name
+
+    def _get_available_ids(self):
+        self.available_ids = []
+        for i in range(len(self.transfocator_config)):
+            self.available_ids.append(self.defaults['cart_ids']['element_type'](self.transfocator_config[i]['id']))
 
     def _get_lens_config(self):
         self.lens_config = {}
@@ -353,30 +373,12 @@ class CRL:
         return B
 
 
-def _read_json(file_name):
-    try:
-        with open(file_name, 'r') as f:
-            data = json.load(f)
-    except IOError:
-        raise Exception('The specified file <{}> not found!'.format(file_name))
-    except ValueError:
-        raise Exception('Malformed JSON file <{}>!'.format(file_name))
-    return data
-
-
-if __name__ == '__main__':
-    '''
-    Example of execution:
-
-    python CRL.py --cart_ids 2 4 6 7 8 --energy=21500 --p0=6.52
-    "d","d_ideal","f","p0","p1","p1_ideal"
-    0.000372455276869,-0.0669574652539,1.04864377922,6.52,1.24962754472,1.31695746525
-    '''
+def crl_console():
     import argparse
 
     data = _read_json(DEFAULTS_FILE)
     description = data['description']
-    defaults = data['defaults']
+    defaults = _convert_types(data['defaults'])
 
     # Processing arguments:
     required_args = []
@@ -400,9 +402,7 @@ if __name__ == '__main__':
             'dest': key,
             'default': defaults[key]['default'],
             'required': False,
-            'type': eval(defaults[key]['type']),
-            'nargs': None,
-            'action': None,
+            'type': defaults[key]['type'],
             'help': '{}.'.format(defaults[key]['help']),
         }
         if defaults[key]['default'] is None:
@@ -410,16 +410,37 @@ if __name__ == '__main__':
 
         if defaults[key]['type'] == bool:
             kwargs['action'] = 'store_true'
+            del (kwargs['type'])
 
-        if defaults[key]['type'] in ["list", "tuple"]:
-            kwargs['type'] = eval(defaults[key]['element_type'])
-            kwargs['nargs'] = '+'
+        if defaults[key]['type'] in [list, tuple]:
+            kwargs['type'] = defaults[key]['element_type']
+            kwargs['nargs'] = '*'  # '*' - zero or more elements, '+' - one or more elements
 
         parser.add_argument(*args, **kwargs)
 
     args = parser.parse_args()
 
     crl = CRL(**args.__dict__)
-    crl.print_result(output_format='csv')
+    crl.print_result()
+    # crl.print_result(output_format='csv')
     # crl.print_result(output_format='json')
     # crl.print_result(output_format='plain_text')
+
+
+def _convert_types(input_dict):
+    for key in input_dict.keys():
+        for el_key in input_dict[key]:
+            if el_key in ['type', 'element_type']:
+                input_dict[key][el_key] = eval(input_dict[key][el_key])
+    return input_dict
+
+
+def _read_json(file_name):
+    try:
+        with open(file_name, 'r') as f:
+            data = json.load(f)
+    except IOError:
+        raise Exception('The specified file <{}> not found!'.format(file_name))
+    except ValueError:
+        raise Exception('Malformed JSON file <{}>!'.format(file_name))
+    return data
