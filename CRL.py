@@ -379,9 +379,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=description)
 
     for key in required_args + optional_args:
-        args = [
-            '--{}'.format(key),
-        ]
+        args = []
+        if 'short_argument' in defaults[key]:
+            args.append('-{}'.format(defaults[key]['short_argument']))
+        args.append('--{}'.format(key))
+
         kwargs = {
             'dest': key,
             'default': defaults[key]['default'],
