@@ -9,28 +9,24 @@ import json
 import math
 import os
 
+from Delta import Delta
+from console_utils import convert_types, defaults_file, read_json
+
 try:
     import numpy as np
 except:
     pass
 
-SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
-
-# Fix for Jython:
-try:
-    SCRIPT_PATH = SCRIPT_PATH.replace(os.path.join(format(os.environ['HOME']), '.jython-cache/cachedir/classes'), '')
-except:
-    pass
-
-DAT_DIR = os.path.join(SCRIPT_PATH, 'dat')
-CONFIG_DIR = os.path.join(SCRIPT_PATH, 'configs')
-DEFAULTS_FILE = os.path.join(CONFIG_DIR, 'defaults.json')
+parms = defaults_file(suffix='CRL')
+DAT_DIR = parms['dat_dir']
+CONFIG_DIR = parms['config_dir']
+DEFAULTS_FILE = parms['defaults_file']
 
 
 class CRL:
     def __init__(self, **kwargs):
         # Get input variables:
-        self.defaults = _convert_types(_read_json(DEFAULTS_FILE)['defaults'])
+        self.defaults = convert_types(read_json(DEFAULTS_FILE)['parameters'])
         for key, default_val in self.defaults.items():
             if key in kwargs.keys():
                 setattr(self, key, kwargs[key])
@@ -54,13 +50,24 @@ class CRL:
         self.read_config_file()  # defines self.config_file and self.transfocator_config
         self._get_available_ids()  # defines self.available_ids
         if not self._check_ids():
+            self.print_result()
             return
 
         # Initialize non-input variables using methods:
-        self.data_file = os.path.join(DAT_DIR, self.data_file)
         self._get_lens_config()  # defines self.lens_config
-        self._calc_delta()  # defines self.delta
         self._calc_y0()  # defines self.y0
+
+        # Find delta (the index of refraction) from other class:
+        if self.data_file:
+            self.data_file = os.path.join(DAT_DIR, self.data_file)
+        delta_obj = Delta(
+            energy=self.energy,
+            precise=True,
+            data_file=self.data_file,
+            use_numpy=self.use_numpy,
+            quiet=self.quiet,
+        )
+        self.delta = delta_obj.delta
 
         # Perform calculations:
         self.calc_T_total()
@@ -69,6 +76,9 @@ class CRL:
         self.calc_ideal_lens()
         self.d = self.calc_delta_focus(self.p1)
         self.d_ideal = self.calc_delta_focus(self.p1_ideal)
+
+        if not self.quiet:
+            self.print_result()
 
     def calc_delta_focus(self, p):
         if p is not None:
@@ -185,49 +195,7 @@ class CRL:
 
     def read_config_file(self):
         self.config_file = os.path.join(CONFIG_DIR, '{}_crl.json'.format(self.beamline))
-        self.transfocator_config = _read_json(self.config_file)['crl']
-
-    def _calc_delta(self):
-        self.delta = None
-        skiprows = 2
-        energy_column = 0
-        delta_column = 1
-        error_msg = 'Error! Use energy range from {} to {} eV.'
-        if self.use_numpy:
-            data = np.loadtxt(self.data_file, skiprows=skiprows)
-            try:
-                idx_previous = np.where(data[:, energy_column] <= self.energy)[0][-1]
-                idx_next = np.where(data[:, energy_column] > self.energy)[0][0]
-            except IndexError:
-                raise Exception(error_msg.format(data[0, energy_column], data[-1, energy_column]))
-
-            idx = idx_previous if abs(data[idx_previous, energy_column] - self.energy) <= abs(
-                data[idx_next, energy_column] - self.energy) else idx_next
-            self.delta = data[idx][delta_column]
-        else:
-            with open(self.data_file, 'r') as f:
-                content = f.readlines()
-                energies = []
-                deltas = []
-                for i in range(skiprows, len(content)):
-                    energies.append(float(content[i].split()[energy_column]))
-                    deltas.append(float(content[i].split()[delta_column]))
-                indices_previous = []
-                indices_next = []
-                try:
-                    for i in range(len(energies)):
-                        if energies[i] <= self.energy:
-                            indices_previous.append(i)
-                        else:
-                            indices_next.append(i)
-                    idx_previous = indices_previous[-1]
-                    idx_next = indices_next[0]
-                except IndexError:
-                    raise Exception(error_msg.format(energies[0], energies[-1]))
-
-                idx = idx_previous if abs(energies[idx_previous] - self.energy) <= abs(
-                    energies[idx_next] - self.energy) else idx_next
-                self.delta = deltas[idx]
+        self.transfocator_config = read_json(self.config_file)['crl']
 
     def _calc_distance(self, id1, id2):
         """Calculate distance between two arbitrary cartridges specified by ids.
@@ -378,76 +346,3 @@ class CRL:
                 raise Exception('Negative power <{}> is not supported for matrix power operation.'.format(n))
 
         return B
-
-
-def crl_console():
-    import argparse
-
-    data = _read_json(DEFAULTS_FILE)
-    description = data['description']
-    defaults = _convert_types(data['defaults'])
-
-    # Processing arguments:
-    required_args = []
-    optional_args = []
-
-    for key in sorted(defaults.keys()):
-        if defaults[key]['default'] is None:
-            required_args.append(key)
-        else:
-            optional_args.append(key)
-
-    parser = argparse.ArgumentParser(description=description)
-
-    for key in required_args + optional_args:
-        args = []
-        if 'short_argument' in defaults[key]:
-            args.append('-{}'.format(defaults[key]['short_argument']))
-        args.append('--{}'.format(key))
-
-        kwargs = {
-            'dest': key,
-            'default': defaults[key]['default'],
-            'required': False,
-            'type': defaults[key]['type'],
-            'help': '{}.'.format(defaults[key]['help']),
-        }
-        if defaults[key]['default'] is None:
-            kwargs['required'] = True
-
-        if defaults[key]['type'] == bool:
-            kwargs['action'] = 'store_true'
-            del (kwargs['type'])
-
-        if defaults[key]['type'] in [list, tuple]:
-            kwargs['type'] = defaults[key]['element_type']
-            kwargs['nargs'] = '*'  # '*' - zero or more elements, '+' - one or more elements
-
-        parser.add_argument(*args, **kwargs)
-
-    args = parser.parse_args()
-
-    crl = CRL(**args.__dict__)
-    crl.print_result()
-    # crl.print_result(output_format='csv')
-    # crl.print_result(output_format='json')
-    # crl.print_result(output_format='plain_text')
-
-
-def _convert_types(input_dict):
-    for key in input_dict.keys():
-        for el_key in input_dict[key]:
-            if el_key in ['type', 'element_type']:
-                input_dict[key][el_key] = eval(input_dict[key][el_key])
-    return input_dict
-
-
-def _read_json(file_name):
-    try:
-        with open(file_name, 'r') as f:
-            data = json.load(f)
-    except IOError:
-        raise Exception('The specified file <{}> not found!'.format(file_name))
-    except ValueError:
-        raise Exception('Malformed JSON file <{}>!'.format(file_name))
-    return data

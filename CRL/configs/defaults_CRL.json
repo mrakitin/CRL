@@ -1,5 +1,6 @@
 {
-    "defaults": {
+    "description": "Calculate real CRL under-/over-focusing comparing with the ideal lens.",
+    "parameters": {
         "beamline": {
             "default": "smi",
             "help": "beamline name",
@@ -70,6 +71,12 @@
             "short_argument": "p",
             "type": "float"
         },
+        "quiet": {
+            "default": false,
+            "help": "suppress output to console",
+            "short_argument": "q",
+            "type": "bool"
+        },
         "r_array": {
             "default": [
                 50,
@@ -92,6 +99,5 @@
             "short_argument": "n",
             "type": "bool"
         }
-    },
-    "description": "Calculate real CRL under-/over-focusing comparing with the ideal lens."
+    }
 }

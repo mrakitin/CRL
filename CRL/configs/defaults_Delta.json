@@ -1,0 +1,75 @@
+{
+    "defaults": {
+        "post_url": "/cgi-bin/getdb.pl",
+        "server": "http://henke.lbl.gov"
+    },
+    "description": "Get Index of Refraction from http://henke.lbl.gov/optical_constants/getdb2.html",
+    "parameters": {
+        "data_file": {
+            "default": false,
+            "help": "use information from a saved file",
+            "short_argument": "i",
+            "type": "str"
+        },
+        "e_max": {
+            "default": 30000,
+            "help": "the highest available energy [eV]",
+            "short_argument": "max",
+            "type": "float"
+        },
+        "e_min": {
+            "default": 30,
+            "help": "the lowest available energy [eV]",
+            "short_argument": "min",
+            "type": "float"
+        },
+        "e_step": {
+            "default": 10,
+            "help": "energy step size used for saving data to a file [eV]",
+            "short_argument": "s",
+            "type": "float"
+        },
+        "energy": {
+            "default": null,
+            "help": "photon energy [eV]",
+            "short_argument": "e",
+            "type": "float"
+        },
+        "formula": {
+            "default": "Be",
+            "help": "material's formula of the interest",
+            "short_argument": "f",
+            "type": "str"
+        },
+        "n_points": {
+            "default": 500,
+            "help": "number of points to get from the server",
+            "short_argument": "p",
+            "type": "int"
+        },
+        "outfile": {
+            "default": false,
+            "help": "output file",
+            "short_argument": "o",
+            "type": "str"
+        },
+        "precise": {
+            "default": false,
+            "help": "find delta within the energy interval +/- 1 eV from the specified energy",
+            "short_argument": "P",
+            "type": "bool"
+        },
+        "quiet": {
+            "default": false,
+            "help": "suppress output to console",
+            "short_argument": "q",
+            "type": "bool"
+        },
+        "use_numpy": {
+            "default": false,
+            "help": "use NumPy",
+            "short_argument": "n",
+            "type": "bool"
+        }
+    }
+}
