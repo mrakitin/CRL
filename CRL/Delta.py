@@ -39,13 +39,7 @@ class Delta:
             return
 
         if not self.data_file:
-            try:
-                self.requests = __import__('requests')
-                self._get_file_name()
-                self._get_file_content()
-            except:
-                raise Exception('Cannot use online resource <{}> to get delta. Use local file instead.'.format(
-                    self.defaults['server']))
+            self._request_from_server()
 
         self._find_delta()
 
@@ -68,8 +62,7 @@ class Delta:
             if self.e_max > self.default_e_max:
                 self.e_max = self.default_e_max
 
-            self._get_file_name()
-            self._get_file_content()
+            self._request_from_server()
 
             if counter > 0:
                 # Get rid of headers (2 first rows) and the first data row to avoid data overlap:
@@ -84,7 +77,7 @@ class Delta:
 
         print('Data from {} eV to {} eV saved to the <{}> file.'.format(
             self.default_e_min, self.default_e_max, self.outfile))
-        print('Energy step: {} eV, number of points: {}, number of chunks {}.'.format(
+        print('Energy step: {} eV, number of points/chunk: {}, number of chunks {}.'.format(
             self.e_step, self.n_points, counter))
 
     def _find_delta(self):
@@ -181,3 +174,12 @@ class Delta:
             self.file_name = str(content.split('URL=')[1].split('>')[0].replace('"', ''))
         except:
             raise Exception('\n\nFile name cannot be found! Server response:\n<{}>'.format(content.strip()))
+
+    def _request_from_server(self):
+        try:
+            self.requests = __import__('requests')
+            self._get_file_name()
+            self._get_file_content()
+        except:
+            msg = 'Cannot use online resource <{}> to get delta. Use local file instead.'
+            raise Exception(msg.format(self.defaults['server']))
