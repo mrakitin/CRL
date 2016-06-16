@@ -85,3 +85,7 @@ $ python CRL/crl_console.py -c -e 21500 -p 6.52
 "d","d_ideal","f","p0","p1","p1_ideal"
 0,0,0,6.52,0,0
 ```
+
+
+This library is used on the SMI beamline at NSLS-II:
+![transfocator][https://github.com/mrakitin/CRL/blob/master/pics/transfocator.jpg]
