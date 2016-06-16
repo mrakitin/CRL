@@ -5,6 +5,7 @@ Get Index of Refraction from http://henke.lbl.gov/optical_constants/getdb2.html.
 Author: Maksim Rakitin (BNL)
 2016
 """
+import math
 import os
 
 from console_utils import convert_types, defaults_file, read_json
@@ -14,6 +15,9 @@ DEFAULTS_FILE = defaults_file(suffix='Delta')['defaults_file']
 
 class Delta:
     def __init__(self, **kwargs):
+        # Check importable libs:
+        self._check_imports()
+
         # Get input variables:
         d = read_json(DEFAULTS_FILE)
 
@@ -30,6 +34,7 @@ class Delta:
                 setattr(self, key, default_val['default'])
 
         self.delta = None
+        self.analytical_delta = None
         self.closest_energy = None
         self.content = None
         self.raw_content = None
@@ -42,12 +47,23 @@ class Delta:
             self._request_from_server()
 
         self._find_delta()
+        if self.available_libs['periodictable']:
+            self.calc_delta()
 
         if not self.quiet:
             self.print_info()
 
+    def calc_delta(self):
+        rho = getattr(self.periodictable, self.formula).density
+        z = getattr(self.periodictable, self.formula).number
+        mass = getattr(self.periodictable, self.formula).mass
+        z_over_a = z / mass
+        wl = 2 * math.pi * 1973 / self.energy  # lambda= (2pi (hc))/E
+        self.analytical_delta = 2.7e-6 * wl ** 2 * rho * z_over_a
+
     def print_info(self):
-        print('Found delta={} for the closest energy={} eV.'.format(self.delta, self.closest_energy))
+        msg = 'Found delta={} (analytical: {}) for the closest energy={} eV.'
+        print(msg.format(self.delta, self.analytical_delta, self.closest_energy))
 
     def save_to_file(self):
         self.e_min = self.default_e_min
@@ -80,22 +96,35 @@ class Delta:
         print('Energy step: {} eV, number of points/chunk: {}, number of chunks {}.'.format(
             self.e_step, self.n_points, counter))
 
+    def _check_imports(self):
+        self.available_libs = {
+            'numpy': None,
+            'periodictable': None,
+            'requests': None,
+        }
+        for key in self.available_libs.keys():
+            try:
+                __import__(key)
+                setattr(self, key, __import__(key))
+                self.available_libs[key] = True
+            except:
+                self.available_libs[key] = False
+
     def _find_delta(self):
         skiprows = 2
         energy_column = 0
         delta_column = 1
         error_msg = 'Error! Use energy range from {} to {} eV.'
-        if self.use_numpy:
+        if self.use_numpy and self.available_libs['numpy']:
             if self.data_file:
-                import numpy as np
-                data = np.loadtxt(self.data_file, skiprows=skiprows)
+                data = self.numpy.loadtxt(self.data_file, skiprows=skiprows)
 
                 self.default_e_min = data[0, energy_column]
                 self.default_e_max = data[-1, energy_column]
 
                 try:
-                    idx_previous = np.where(data[:, energy_column] <= self.energy)[0][-1]
-                    idx_next = np.where(data[:, energy_column] > self.energy)[0][0]
+                    idx_previous = self.numpy.where(data[:, energy_column] <= self.energy)[0][-1]
+                    idx_next = self.numpy.where(data[:, energy_column] > self.energy)[0][0]
                 except IndexError:
                     raise Exception(error_msg.format(self.default_e_min, self.default_e_max))
 
@@ -176,10 +205,9 @@ class Delta:
             raise Exception('\n\nFile name cannot be found! Server response:\n<{}>'.format(content.strip()))
 
     def _request_from_server(self):
-        try:
-            self.requests = __import__('requests')
+        if self.available_libs['requests']:
             self._get_file_name()
             self._get_file_content()
-        except:
+        else:
             msg = 'Cannot use online resource <{}> to get delta. Use local file instead.'
             raise Exception(msg.format(self.defaults['server']))
