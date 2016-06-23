@@ -7,6 +7,12 @@
             "short_argument": "b",
             "type": "str"
         },
+        "calc_delta": {
+            "default": false,
+            "help": "calculate delta analytically",
+            "short_argument": "a",
+            "type": "bool"
+        },
         "cart_ids": {
             "default": null,
             "element_type": "str",

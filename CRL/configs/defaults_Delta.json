@@ -5,6 +5,12 @@
     },
     "description": "Get Index of Refraction from http://henke.lbl.gov/optical_constants/getdb2.html",
     "parameters": {
+        "calc_delta": {
+            "default": false,
+            "help": "calculate delta analytically",
+            "short_argument": "a",
+            "type": "bool"
+        },
         "data_file": {
             "default": false,
             "help": "use information from a saved file",
