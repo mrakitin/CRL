@@ -46,14 +46,19 @@ class Delta:
         if not self.data_file:
             self._request_from_server()
 
-        self._find_delta()
-        if self.available_libs['periodictable']:
-            self.calc_delta()
+        if self.calc_delta:
+            if self.available_libs['periodictable']:
+                self.calculate_delta()
+                self.delta = self.analytical_delta
+            else:
+                raise ValueError('periodictable library is not available. Install it if you want to use it.')
+        else:
+            self._find_delta()
 
         if not self.quiet:
             self.print_info()
 
-    def calc_delta(self):
+    def calculate_delta(self):
         rho = getattr(self.periodictable, self.formula).density
         z = getattr(self.periodictable, self.formula).number
         mass = getattr(self.periodictable, self.formula).mass
@@ -62,8 +67,8 @@ class Delta:
         self.analytical_delta = 2.7e-6 * wl ** 2 * rho * z_over_a
 
     def print_info(self):
-        msg = 'Found delta={} (analytical: {}) for the closest energy={} eV.'
-        print(msg.format(self.delta, self.analytical_delta, self.closest_energy))
+        msg = 'Found delta={} for the closest energy={} eV.'
+        print(msg.format(self.delta, self.closest_energy))
 
     def save_to_file(self):
         self.e_min = self.default_e_min

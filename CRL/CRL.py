@@ -66,6 +66,7 @@ class CRL:
             data_file=self.data_file,
             use_numpy=self.use_numpy,
             quiet=self.quiet,
+            calc_delta=self.calc_delta,
         )
         self.delta = delta_obj.delta
 
