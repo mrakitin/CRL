@@ -1,4 +1,4 @@
-# bnl-crl
+# CRL
 Simulator of the compound refractive lenses (CRL).
 
 The code is written in pure Python, tested to be working under Linux and Windows with Python 2.7/3.5 and Jython 2.7. There is no required NumPy dependency, but it still can be used for operations with matrices, etc. (see the `Usage` section below).
